@@ -29,6 +29,5 @@
     "esbuild": "^0.17.19"
   },
   "dependencies": {
-    "vec-lite": "file:../vec_lite"
   }
 }

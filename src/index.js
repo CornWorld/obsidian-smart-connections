@@ -2,6 +2,7 @@ const Obsidian = require("obsidian");
 
 const DEFAULT_SETTINGS = {
   api_key: "",
+  api_endpoint: "https://api.openai.com",
   chat_open: true,
   file_exclusions: "",
   folder_exclusions: "",
@@ -1268,7 +1269,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
     };
     // console.log(this.settings.api_key);
     const reqParams = {
-      url: `https://api.openai.com/v1/embeddings`,
+      url: `${this.settings.api_endpoint}/v1/embeddings`,
       method: "POST",
       body: JSON.stringify(usedParams),
       headers: {
@@ -2694,6 +2695,11 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
       this.plugin.settings.api_key = value.trim();
       await this.plugin.saveSettings(true);
     }));
+    // add a text input to enter the API endpoint
+    new Obsidian.Setting(containerEl).setName("OpenAI API Endpoint").setDesc("Optional: an OpenAI API endpoint is used to use Smart Connections.").addText((text) => text.setPlaceholder("Enter your api_endpoint").setValue(this.plugin.settings.api_endpoint).onChange(async (value) => {
+      this.plugin.settings.api_endpoint = value.trim();
+      await this.plugin.saveSettings(true);
+    }));
     // add a button to test the API key is working
     new Obsidian.Setting(containerEl).setName("Test API Key").setDesc("Test API Key").addButton((button) => button.setButtonText("Test API Key").onClick(async () => {
       // test API key
@@ -3405,7 +3411,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
       const full_str = await new Promise((resolve, reject) => {
         try {
           // console.log("stream", opts);
-          const url = "https://api.openai.com/v1/chat/completions";
+          const url = `${this.settings.api_endpoint}/v1/chat/completions`;
           this.active_stream = new ScStreamer(url, {
             headers: {
               "Content-Type": "application/json",
@@ -3459,7 +3465,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
     }else{
       try{
         const response = await (0, Obsidian.requestUrl)({
-          url: `https://api.openai.com/v1/chat/completions`,
+          url: `${this.settings.api_endpoint}/v1/chat/completions`,
           method: "POST",
           headers: {
             Authorization: `Bearer ${this.plugin.settings.api_key}`,
