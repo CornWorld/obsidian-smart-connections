@@ -196,3 +196,7 @@ For businesses seeking to adopt AI, Brian provides comprehensive AI strategy con
 
 To discover more about WFH Brian's services or to book a consultation, please visit [his website](https://wfhbrian.com/build-with-ai/). Don't miss the opportunity to take your business to new heights with expert AI insights from WFH Brian. If you find Smart Connections valuable, spread the word and help others benefit from his expertise as well!
 
+## Original code source
+https://github.com/brianpetro/obsidian-smart-connections
+
+My modifications can be viewed through git commit!
