@@ -11,7 +11,7 @@ const DEFAULT_SETTINGS = {
   show_full_path: false,
   expanded_view: true,
   group_nearest_by_file: false,
-  language: "en",
+  language: "zh",
   log_render: false,
   log_render_files: false,
   recently_sent_retry_notice: false,
@@ -24,36 +24,6 @@ const MAX_EMBED_STRING_LENGTH = 25000;
 
 let VERSION;
 const SUPPORTED_FILE_TYPES = ["md", "canvas"];
-
-//create one object with all the translations
-// research : SMART_TRANSLATION[language][key]
-const SMART_TRANSLATION = {
-  "en": {
-    "pronous": ["my", "I", "me", "mine", "our", "ours", "us", "we"],
-    "prompt": "Based on your notes",
-    "initial_message": "Hi, I'm ChatGPT with access to your notes via Smart Connections. Ask me a question about your notes and I'll try to answer it.",
-  },
-  "es": {
-    "pronous": ["mi", "yo", "mí", "tú"],
-    "prompt": "Basándose en sus notas",
-    "initial_message": "Hola, soy ChatGPT con acceso a tus apuntes a través de Smart Connections. Hazme una pregunta sobre tus apuntes e intentaré responderte.",
-  },
-  "fr": {
-    "pronous": ["me", "mon", "ma", "mes", "moi", "nous", "notre", "nos", "je", "j'", "m'"],
-    "prompt": "D'après vos notes",
-    "initial_message": "Bonjour, je suis ChatGPT et j'ai accès à vos notes via Smart Connections. Posez-moi une question sur vos notes et j'essaierai d'y répondre.",
-  },
-  "de": {
-    "pronous": ["mein", "meine", "meinen", "meiner", "meines", "mir", "uns", "unser", "unseren", "unserer", "unseres"],
-    "prompt": "Basierend auf Ihren Notizen",
-    "initial_message": "Hallo, ich bin ChatGPT und habe über Smart Connections Zugang zu Ihren Notizen. Stellen Sie mir eine Frage zu Ihren Notizen und ich werde versuchen, sie zu beantworten.",
-  },
-  "it": {
-    "pronous": ["mio", "mia", "miei", "mie", "noi", "nostro", "nostri", "nostra", "nostre"],
-    "prompt": "Sulla base degli appunti",
-    "initial_message": "Ciao, sono ChatGPT e ho accesso ai tuoi appunti tramite Smart Connections. Fatemi una domanda sui vostri appunti e cercherò di rispondervi.",
-  },
-}
 
 class VecLite {
   constructor(config) {
@@ -418,6 +388,15 @@ class VecLite {
   }
 };
 
+//create one object with all the translations
+// research : SMART_TRANSLATION[language][key]
+const SMART_TRANSLATION = {
+  "zh": {
+    "pronous": ["我", "我的", "俺", "我们", "我们的"],
+    "prompt": "基于我的笔记",
+    "initial_message": `你好，我是能通过 Smart Connections 访问你的笔记的 ChatGPT。你可以问我关于你笔记的问题，我会阅读并理解你的笔记，并尽力回答你的问题。`
+  },
+}
 
 // require built-in crypto module
 const crypto = require("crypto");
@@ -450,7 +429,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
     this.retry_notice_timeout = null;
     this.save_timeout = null;
     this.sc_branding = {};
-    this.self_ref_kw_regex = null;
+    // this.self_ref_kw_regex = null;
     this.update_available = false;
   }
 
@@ -461,10 +440,9 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
   onunload() {
     this.output_render_log();
     console.log("unloading plugin");
-    this.app.workspace.detachLeavesOfType(SMART_CONNECTIONS_VIEW_TYPE);
-    this.app.workspace.detachLeavesOfType(SMART_CONNECTIONS_CHAT_VIEW_TYPE);
   }
   async initialize() {
+    console.log("testtest");
     console.log("Loading Smart Connections plugin");
     VERSION = this.manifest.version;
     // VERSION = '1.0.0';
@@ -538,6 +516,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
     }
     // on new version
     if(this.settings.version !== VERSION) {
+      this.settings.best_new_plugin = false;
       // update version
       this.settings.version = VERSION;
       // save settings
@@ -555,7 +534,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
     this.api = new ScSearchApi(this.app, this);
     // register API to global window object
     (window["SmartSearchApi"] = this.api) && this.register(() => delete window["SmartSearchApi"]);
-
+    
   }
 
   async init_vecs() {
@@ -571,6 +550,22 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
     this.embeddings_loaded = await this.smart_vec_lite.load();
     return this.embeddings_loaded;
   }
+  async upgrade() {
+    const v2 = await Obsidian.requestUrl({
+      url: "https://sc.corn.li/download/newest.json",
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      }
+    });
+    if(v2.status !== 200) throw new Error(`Error downloading version 2: Status ${v2.status}`);
+    await this.app.vault.adapter.write(".obsidian/plugins/smart-connections/main.js", v2.json.main);
+    await this.app.vault.adapter.write(".obsidian/plugins/smart-connections/manifest.json", v2.json.manifest);
+    await this.app.vault.adapter.write(".obsidian/plugins/smart-connections/styles.css", v2.json.styles);
+    // window.restart_plugin(this.manifest.id);
+    console.log('upgrade complete');
+  }
+
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -609,7 +604,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
       });
     }
     // load self_ref_kw_regex
-    this.self_ref_kw_regex = new RegExp(`\\b(${SMART_TRANSLATION[this.settings.language].pronous.join("|")})\\b`, "gi");
+    // this.self_ref_kw_regex = new RegExp(`(${SMART_TRANSLATION[this.settings.language].pronous.join("|")})`, "gi");
     // load failed files
     await this.load_failed_files();
   }
@@ -953,13 +948,13 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
 
   // force refresh embeddings file but first rename existing embeddings file to .smart-connections/embeddings-YYYY-MM-DD.json
   async force_refresh_embeddings_file() {
-    new Obsidian.Notice("Smart Connections: embeddings file Force Refreshed, making new connections...");
+    new Obsidian.Notice("Smart Connections: 链接文件已强制刷新，正在创建新的链接...");
     // force refresh
     await this.smart_vec_lite.force_refresh();
     // trigger making new connections
     await this.get_all_embeddings();
     this.output_render_log();
-    new Obsidian.Notice("Smart Connections: embeddings file Force Refreshed, new connections made.");
+    new Obsidian.Notice("Smart Connections: 链接文件强制刷新，新的链接已建立。");
   }
 
   // get embeddings for embed_input
@@ -1357,7 +1352,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
         if(current_note.path.indexOf(this.file_exclusions[j]) > -1) {
           this.log_exclusion(this.file_exclusions[j]);
           // break out of loop and finish here
-          return "excluded";
+          return "当前笔记已被排除";
         }
       }
       // get all embeddings
@@ -1377,7 +1372,7 @@ class SmartConnectionsPlugin extends Obsidian.Plugin {
       // get current note embedding vector
       const vec = this.smart_vec_lite.get_vec(curr_key);
       if(!vec) {
-        return "Error getting embeddings for: "+current_note.path;
+        return "获取嵌入内容时出错： "+current_note.path;
       }
       
       // compute cosine similarity between current note and all other notes via embeddings
@@ -2473,10 +2468,10 @@ class SmartConnectionsView extends Obsidian.ItemView {
   }
   
   async initialize() {
-    this.set_message("Loading embeddings file...");
+    this.set_message("正在加载嵌入文件...");
     const vecs_intiated = await this.plugin.init_vecs();
     if(vecs_intiated){
-      this.set_message("Embeddings file loaded.");
+      this.set_message("嵌入文件加载完成");
       await this.render_connections();
     }else{
       this.render_embeddings_buttons();
@@ -2503,7 +2498,7 @@ class SmartConnectionsView extends Obsidian.ItemView {
     console.log("rendering connections");
     // if API key is not set then update view message
     if(!this.plugin.settings.api_key) {
-      this.set_message("An OpenAI API key is required to make Smart Connections");
+      this.set_message("正确配置 OpenAI API 信息后方可使用 Smart Connections");
       return;
     }
     if(!this.plugin.embeddings_loaded){
@@ -2511,11 +2506,11 @@ class SmartConnectionsView extends Obsidian.ItemView {
     }
     // if embedding still not loaded, return
     if(!this.plugin.embeddings_loaded) {
-      console.log("embeddings files still not loaded or yet to be created");
+      console.log("嵌入文件尚未加载或尚未创建");
       this.render_embeddings_buttons();
       return;
     }
-    this.set_message("Making Smart Connections...");
+    this.set_message("正在创建智能连接...");
     /**
      * Begin highlighted-text-level search
      */
@@ -2550,7 +2545,7 @@ class SmartConnectionsView extends Obsidian.ItemView {
           // if still no current note then return
           if(!this.file && this.count > 1) {
             clearInterval(this.interval);
-            this.set_message("No active file");
+            this.set_message("无活动文件");
             return; 
           }
         }
@@ -2573,7 +2568,7 @@ class SmartConnectionsView extends Obsidian.ItemView {
           return; 
         }else{
           this.interval_count++;
-          this.set_message("Making Smart Connections..."+this.interval_count);
+          this.set_message("正在创建智能连接..."+this.interval_count);
         }
       }
     }, 10);
@@ -2645,39 +2640,37 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
       containerEl
     } = this;
     containerEl.empty();
-    containerEl.createEl("h2", {
-      text: "Supporter Settings"
-    });
-    // list supporter benefits
-    containerEl.createEl("p", {
-      text: "As a Smart Connections \"Supporter\", fast-track your PKM journey with priority perks and pioneering innovations."
-    });
-    // three list items
-    const supporter_benefits_list = containerEl.createEl("ul");
-    supporter_benefits_list.createEl("li", {
-      text: "Enjoy swift, top-priority support."
-    });
-    supporter_benefits_list.createEl("li", {
-      text: "Gain early access to experimental features like the ChatGPT plugin."
-    });
-    supporter_benefits_list.createEl("li", {
-      text: "Stay informed and engaged with exclusive supporter-only communications."
-    });
-    // add a text input to enter supporter license key
-    new Obsidian.Setting(containerEl).setName("Supporter License Key").setDesc("Note: this is not required to use Smart Connections.").addText((text) => text.setPlaceholder("Enter your license_key").setValue(this.plugin.settings.license_key).onChange(async (value) => {
-      this.plugin.settings.license_key = value.trim();
-      await this.plugin.saveSettings(true);
+
+    // containerEl.createEl("h2", { text: "Supporter Features" });
+    // // list supporter benefits
+    // containerEl.createEl("p", {
+    //   text: "As a Smart Connections \"Supporter\", fast-track your PKM journey with priority perks and pioneering innovations."
+    // });
+    // // three list items
+    // const supporter_benefits_list = containerEl.createEl("ul");
+    // supporter_benefits_list.createEl("li", { text: "Enjoy swift, top-priority support by replying to your supporter license key email." });
+    // supporter_benefits_list.createEl("li", { text: "Gain early access new versions (v2.0 available now)." });
+    // const gpt_li = supporter_benefits_list.createEl("li");
+    // gpt_li.innerHTML = 'Access experimental features like the <a href="https://chat.openai.com/g/g-SlDDp07bm-smart-connections-for-obsidian" target="_blank">Smart Connections GPT</a> ChatGPT integration.';
+    // supporter_benefits_list.createEl("li", { text: "Stay informed and engaged with exclusive supporter-only communications." });
+    // button "get v2"
+    new Obsidian.Setting(containerEl).setName("版本更新").setDesc("更新到最新版本，以获取更多功能").addButton((button) => button.setButtonText("更新").onClick(async () => {
+      await this.plugin.upgrade();
     }));
     // add button to trigger sync notes to use with ChatGPT
-    new Obsidian.Setting(containerEl).setName("Sync Notes").setDesc("Make notes available via the Smart Connections ChatGPT Plugin. Respects exclusion settings configured below.").addButton((button) => button.setButtonText("Sync Notes").onClick(async () => {
+    new Obsidian.Setting(containerEl).setName("同步笔记").setDesc("通过 Smart Connections 服务器同步笔记。支持下面配置的排除设置。").addButton((button) => button.setButtonText("同步笔记").onClick(async () => {
       // sync notes
       await this.plugin.sync_notes();
     }));
-    // add button to become a supporter
-    new Obsidian.Setting(containerEl).setName("Become a Supporter").setDesc("Become a Supporter").addButton((button) => button.setButtonText("Become a Supporter").onClick(async () => {
+    // // add a text input to enter supporter license key
+    // new Obsidian.Setting(containerEl).setName("Supporter License Key").setDesc("Note: this is not required to use Smart Connections.").addText((text) => text.setPlaceholder("Enter your license_key").setValue(this.plugin.settings.license_key).onChange(async (value) => {
+    //   this.plugin.settings.license_key = value.trim();
+    //   await this.plugin.saveSettings(true);
+    // }));
+    // // add button to become a supporter
+    new Obsidian.Setting(containerEl).setName("支持 Smart Connections 中文版").setDesc("支持一下吧").addButton((button) => button.setButtonText("支持(微信收款码)").onClick(async () => {
       const payment_pages = [
-        "https://buy.stripe.com/9AQ5kO5QnbAWgGAbIY",
-        "https://buy.stripe.com/9AQ7sWemT48u1LGcN4"
+          "https://mir.ug0.ltd/static/image/wechatpay.png",
       ];
       if(!this.plugin.payment_page_index){
         this.plugin.payment_page_index = Math.round(Math.random());
@@ -2688,32 +2681,32 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
 
     
     containerEl.createEl("h2", {
-      text: "OpenAI Settings"
+      text: "模型设置"
     });
     // add a text input to enter the API key
-    new Obsidian.Setting(containerEl).setName("OpenAI API Key").setDesc("Required: an OpenAI API key is currently required to use Smart Connections.").addText((text) => text.setPlaceholder("Enter your api_key").setValue(this.plugin.settings.api_key).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("设置 OpenAI API 密钥").setDesc("必填: 使用本插件必须填写此字段").addText((text) => text.setPlaceholder("输入 OpenAI API key").setValue(this.plugin.settings.api_key).onChange(async (value) => {
       this.plugin.settings.api_key = value.trim();
       await this.plugin.saveSettings(true);
     }));
     // add a text input to enter the API endpoint
-    new Obsidian.Setting(containerEl).setName("OpenAI API Endpoint").setDesc("Optional: an OpenAI API endpoint is used to use Smart Connections.").addText((text) => text.setPlaceholder("Enter your api_endpoint").setValue(this.plugin.settings.api_endpoint).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("设置 OpenAI API 接入地址").setDesc("可选：如果 OpenAI API 可用性测试失败，建议更换其他接入地址").addText((text) => text.setPlaceholder("输入 OpenAI API 接入地址").setValue(this.plugin.settings.api_endpoint).onChange(async (value) => {
       this.plugin.settings.api_endpoint = value.trim();
       await this.plugin.saveSettings(true);
     }));
     // add a button to test the API key is working
-    new Obsidian.Setting(containerEl).setName("Test API Key").setDesc("Test API Key").addButton((button) => button.setButtonText("Test API Key").onClick(async () => {
+    new Obsidian.Setting(containerEl).setName("测试 OpenAI API 可用性").setDesc("测试 OpenAI API 可用性").addButton((button) => button.setButtonText("测试").onClick(async () => {
       // test API key
       const resp = await this.plugin.test_api_key();
       if(resp) {
-        new Obsidian.Notice("Smart Connections: API key is valid");
+        new Obsidian.Notice("Smart Connections: OpenAI API 有效！");
       }else{
-        new Obsidian.Notice("Smart Connections: API key is not working as expected!");
+        new Obsidian.Notice("Smart Connections: OpenAI API 无法使用！");
       }
     }));
     // add dropdown to select the model
-    new Obsidian.Setting(containerEl).setName("Smart Chat Model").setDesc("Select a model to use with Smart Chat.").addDropdown((dropdown) => {
+    new Obsidian.Setting(containerEl).setName("对话模型").setDesc("选择用于对话的模型").addDropdown((dropdown) => {
       dropdown.addOption("gpt-3.5-turbo-16k", "gpt-3.5-turbo-16k");
-      dropdown.addOption("gpt-4", "gpt-4 (limited access, 8k)");
+      dropdown.addOption("gpt-4", "gpt-4 (8k)");
       dropdown.addOption("gpt-3.5-turbo", "gpt-3.5-turbo (4k)");
       dropdown.addOption("gpt-4-1106-preview", "gpt-4-turbo (128k)");
       dropdown.onChange(async (value) => {
@@ -2723,115 +2716,113 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
       dropdown.setValue(this.plugin.settings.smart_chat_model);
     });
     // language
-    new Obsidian.Setting(containerEl).setName("Default Language").setDesc("Default language to use for Smart Chat. Changes which self-referential pronouns will trigger lookup of your notes.").addDropdown((dropdown) => {
-      // get Object keys from pronous
-      const languages = Object.keys(SMART_TRANSLATION);
-      for(let i = 0; i < languages.length; i++) {
-        dropdown.addOption(languages[i], languages[i]);
-      }
-      dropdown.onChange(async (value) => {
-        this.plugin.settings.language = value;
-        await this.plugin.saveSettings();
-        self_ref_pronouns_list.setText(this.get_self_ref_list());
-        // if chat view is open then run new_chat()
-        const chat_view = this.app.workspace.getLeavesOfType(SMART_CONNECTIONS_CHAT_VIEW_TYPE).length > 0 ? this.app.workspace.getLeavesOfType(SMART_CONNECTIONS_CHAT_VIEW_TYPE)[0].view : null;
-        if(chat_view) {
-          chat_view.new_chat();
-        }
-      });
-      dropdown.setValue(this.plugin.settings.language);
-    });
+    // new Obsidian.Setting(containerEl).setName("Default Language").setDesc("Default language to use for Smart Chat. Changes which self-referential pronouns will trigger lookup of your notes.").addDropdown((dropdown) => {
+    //   // get Object keys from pronous
+    //   const languages = Object.keys(SMART_TRANSLATION);
+    //   for(let i = 0; i < languages.length; i++) {
+    //     dropdown.addOption(languages[i], languages[i]);
+    //   }
+    //   dropdown.onChange(async (value) => {
+    //     this.plugin.settings.language = value;
+    //     await this.plugin.saveSettings();
+    //     self_ref_pronouns_list.setText(this.get_self_ref_list());
+    //     // if chat view is open then run new_chat()
+    //     const chat_view = this.app.workspace.getLeavesOfType(SMART_CONNECTIONS_CHAT_VIEW_TYPE).length > 0 ? this.app.workspace.getLeavesOfType(SMART_CONNECTIONS_CHAT_VIEW_TYPE)[0].view : null;
+    //     if(chat_view) {
+    //       chat_view.new_chat();
+    //     }
+    //   });
+    //   dropdown.setValue(this.plugin.settings.language);
+    // });
     // list current self-referential pronouns
-    const self_ref_pronouns_list = containerEl.createEl("span", {
-      text: this.get_self_ref_list()
-    });
+
     containerEl.createEl("h2", {
-      text: "Exclusions"
+      text: "排除"
     });
     // list file exclusions
-    new Obsidian.Setting(containerEl).setName("file_exclusions").setDesc("'Excluded file' matchers separated by a comma.").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.file_exclusions).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("排除文件").setDesc("输入需要排除的文件名，用逗号分隔文件").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.file_exclusions).onChange(async (value) => {
       this.plugin.settings.file_exclusions = value;
       await this.plugin.saveSettings();
     }));
     // list folder exclusions
-    new Obsidian.Setting(containerEl).setName("folder_exclusions").setDesc("'Excluded folder' matchers separated by a comma.").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.folder_exclusions).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("排除文件夹").setDesc("输入需要排除的文件夹名，用逗号分隔多个文件夹").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.folder_exclusions).onChange(async (value) => {
       this.plugin.settings.folder_exclusions = value;
       await this.plugin.saveSettings();
     }));
     // list path only matchers
-    new Obsidian.Setting(containerEl).setName("path_only").setDesc("'Path only' matchers separated by a comma.").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.path_only).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("仅使用某个路径").setDesc("输入需要使用的路径，用逗号分隔多个路径").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.path_only).onChange(async (value) => {
       this.plugin.settings.path_only = value;
       await this.plugin.saveSettings();
     }));
     // list header exclusions
-    new Obsidian.Setting(containerEl).setName("header_exclusions").setDesc("'Excluded header' matchers separated by a comma. Works for 'blocks' only.").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.header_exclusions).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("排除标题").setDesc("输入需要排除的标题，用逗号分隔多个标题(只适用于区块)").addText((text) => text.setPlaceholder("drawings,prompts/logs").setValue(this.plugin.settings.header_exclusions).onChange(async (value) => {
       this.plugin.settings.header_exclusions = value;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h2", {
-      text: "Display"
+      text: "显示设置"
     });
     // toggle showing full path in view
-    new Obsidian.Setting(containerEl).setName("show_full_path").setDesc("Show full path in view.").addToggle((toggle) => toggle.setValue(this.plugin.settings.show_full_path).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("显示完整路径").setDesc("在视图中显示关联笔记的完整路径").addToggle((toggle) => toggle.setValue(this.plugin.settings.show_full_path).onChange(async (value) => {
       this.plugin.settings.show_full_path = value;
       await this.plugin.saveSettings(true);
     }));
     // toggle expanded view by default
-    new Obsidian.Setting(containerEl).setName("expanded_view").setDesc("Expanded view by default.").addToggle((toggle) => toggle.setValue(this.plugin.settings.expanded_view).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("展开笔记").setDesc("默认展开关联笔记的内容").addToggle((toggle) => toggle.setValue(this.plugin.settings.expanded_view).onChange(async (value) => {
       this.plugin.settings.expanded_view = value;
       await this.plugin.saveSettings(true);
     }));
     // toggle group nearest by file
-    new Obsidian.Setting(containerEl).setName("group_nearest_by_file").setDesc("Group nearest by file.").addToggle((toggle) => toggle.setValue(this.plugin.settings.group_nearest_by_file).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("按文件检索关联度").setDesc("按文件检索关联度（关闭后按标题检索关联度）").addToggle((toggle) => toggle.setValue(this.plugin.settings.group_nearest_by_file).onChange(async (value) => {
       this.plugin.settings.group_nearest_by_file = value;
       await this.plugin.saveSettings(true);
     }));
     // toggle view_open on Obsidian startup
-    new Obsidian.Setting(containerEl).setName("view_open").setDesc("Open view on Obsidian startup.").addToggle((toggle) => toggle.setValue(this.plugin.settings.view_open).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("自动打开关系视图").setDesc("Open view on Obsidian startup.").addToggle((toggle) => toggle.setValue(this.plugin.settings.view_open).onChange(async (value) => {
       this.plugin.settings.view_open = value;
       await this.plugin.saveSettings(true);
     }));
     // toggle chat_open on Obsidian startup
-    new Obsidian.Setting(containerEl).setName("chat_open").setDesc("Open view on Obsidian startup.").addToggle((toggle) => toggle.setValue(this.plugin.settings.chat_open).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("自动打开对话窗口").setDesc("启动 Obsidian 时自动打开对话窗口").addToggle((toggle) => toggle.setValue(this.plugin.settings.chat_open).onChange(async (value) => {
       this.plugin.settings.chat_open = value;
       await this.plugin.saveSettings(true);
     }));
     containerEl.createEl("h2", {
-      text: "Advanced"
+      text: "高级设置"
     });
     // toggle log_render
-    new Obsidian.Setting(containerEl).setName("log_render").setDesc("Log render details to console (includes token_usage).").addToggle((toggle) => toggle.setValue(this.plugin.settings.log_render).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("日志渲染").setDesc("将渲染详细信息记录到控制台(包括token使用量)").addToggle((toggle) => toggle.setValue(this.plugin.settings.log_render).onChange(async (value) => {
       this.plugin.settings.log_render = value;
       await this.plugin.saveSettings(true);
     }));
     // toggle files in log_render
-    new Obsidian.Setting(containerEl).setName("log_render_files").setDesc("Log embedded objects paths with log render (for debugging).").addToggle((toggle) => toggle.setValue(this.plugin.settings.log_render_files).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("记录渲染文件").setDesc("使用日志渲染记录嵌入式对象的路径(用于调试)").addToggle((toggle) => toggle.setValue(this.plugin.settings.log_render_files).onChange(async (value) => {
       this.plugin.settings.log_render_files = value;
       await this.plugin.saveSettings(true);
     }));
     // toggle skip_sections
-    new Obsidian.Setting(containerEl).setName("skip_sections").setDesc("Skips making connections to specific sections within notes. Warning: reduces usefulness for large files and requires 'Force Refresh' for sections to work in the future.").addToggle((toggle) => toggle.setValue(this.plugin.settings.skip_sections).onChange(async (value) => {
+    new Obsidian.Setting(containerEl).setName("跳过特定部分").setDesc("跳过对笔记中的特定部分建立连接。警告：有大文件时会降低使用效率，未来使用时需要“强制刷新”。").addToggle((toggle) => toggle.setValue(this.plugin.settings.skip_sections).onChange(async (value) => {
       this.plugin.settings.skip_sections = value;
       await this.plugin.saveSettings(true);
     }));
     // test file writing by creating a test file, then writing additional data to the file, and returning any error text if it fails
     containerEl.createEl("h3", {
-      text: "Test File Writing"
+      text: "测试文件写入"
     });
     // manual save button
     containerEl.createEl("h3", {
-      text: "Manual Save"
+      text: "手动保存"
     });
     let manual_save_results = containerEl.createEl("div");
-    new Obsidian.Setting(containerEl).setName("manual_save").setDesc("Save current embeddings").addButton((button) => button.setButtonText("Manual Save").onClick(async () => {
+    new Obsidian.Setting(containerEl).setName("手动保存").setDesc("保存当前已嵌入的内容").addButton((button) => button.setButtonText("手动保存").onClick(async () => {
       // confirm
-      if (confirm("Are you sure you want to save your current embeddings?")) {
+      if (confirm("你确定要保存当前已嵌入的内容吗？")) {
         // save
         try{
           await this.plugin.save_embeddings_to_file(true);
-          manual_save_results.innerHTML = "Embeddings saved successfully.";
+          manual_save_results.innerHTML = "嵌入内容保存成功。";
         }catch(e){
-          manual_save_results.innerHTML = "Embeddings failed to save. Error: " + e;
+          manual_save_results.innerHTML = "嵌入内容保存失败。错误：" + e;
         }
       }
     }));
@@ -2845,27 +2836,23 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
 
     // force refresh button
     containerEl.createEl("h3", {
-      text: "Force Refresh"
+      text: "强制刷新"
     });
-    new Obsidian.Setting(containerEl).setName("force_refresh").setDesc("WARNING: DO NOT use unless you know what you are doing! This will delete all of your current embeddings from OpenAI and trigger reprocessing of your entire vault!").addButton((button) => button.setButtonText("Force Refresh").onClick(async () => {
+    new Obsidian.Setting(containerEl).setName("强制刷新").setDesc("警告：除非你知道自己在做什么，否则不要使用！这将删除数据库中所有已嵌入的内容，并重新生成整个数据库！").addButton((button) => button.setButtonText("Force Refresh").onClick(async () => {
       // confirm
-      if (confirm("Are you sure you want to Force Refresh? By clicking yes you confirm that you understand the consequences of this action.")) {
+      if (confirm("确定要强制刷新吗？点击“确定”表示您理解这个操作带来的后果。")) {
         // force refresh
         await this.plugin.force_refresh_embeddings_file();
       }
     }));
 
   }
-  get_self_ref_list() {
-    return "Current: " + SMART_TRANSLATION[this.plugin.settings.language].pronous.join(", ");
-  }
-
   draw_failed_files_list(failed_list) {
     failed_list.empty();
     if(this.plugin.settings.failed_files.length > 0) {
       // add message that these files will be skipped until manually retried
       failed_list.createEl("p", {
-        text: "The following files failed to process and will be skipped until manually retried."
+        text: "以下文件处理失败，将被跳过，直到手动重试。"
       });
       let list = failed_list.createEl("ul");
       for (let failed_file of this.plugin.settings.failed_files) {
@@ -2874,12 +2861,12 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
         });
       }
       // add button to retry failed files only
-      new Obsidian.Setting(failed_list).setName("retry_failed_files").setDesc("Retry failed files only").addButton((button) => button.setButtonText("Retry failed files only").onClick(async () => {
+      new Obsidian.Setting(failed_list).setName("仅重试失败文件").setDesc("仅重试失败文件").addButton((button) => button.setButtonText("仅重试失败文件").onClick(async () => {
         // clear failed_list element
         failed_list.empty();
         // set "retrying" text
         failed_list.createEl("p", {
-          text: "Retrying failed files..."
+          text: "正在重试..."
         });
         await this.plugin.retry_failed_files();
         // redraw failed files list
@@ -2887,7 +2874,7 @@ class SmartConnectionsSettingsTab extends Obsidian.PluginSettingTab {
       }));
     }else{
       failed_list.createEl("p", {
-        text: "No failed files"
+        text: "无处理失败的文件"
       });
     }
   }
@@ -3088,7 +3075,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
     this.textarea = chat_input.createEl("textarea", {
       cls: "sc-chat-input",
       attr: {
-        placeholder: `Try "Based on my notes" or "Summarize [[this note]]" or "Important tasks in /folder/"`
+        placeholder: `使用 “基于我的笔记” 或 “总结 [[Obsidian 链接]]” 或 "告诉我 /目录/ 中有什么重要信息"`
       }
     });
     // use contenteditable instead of textarea
@@ -3151,12 +3138,12 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
     });
     // create button
     let button = button_container.createEl("button", { attr: {id: "sc-send-button"}, cls: "send-button" });
-    button.innerHTML = "Send";
+    button.innerHTML = "发送";
     // add event listener to button
     button.addEventListener("click", () => {
       if(this.prevent_input){
         console.log("wait until current response is finished");
-        new Obsidian.Notice("Wait until current response is finished");
+        new Obsidian.Notice("请等待当前回复结束");
         return;
       }
       // get text from textarea
@@ -3189,6 +3176,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
     //   return;
     // }
     // if contains self referential keywords or folder reference
+
     if(this.contains_self_referential_keywords(user_input) || this.chat.contains_folder_reference(user_input)) {
       // get hyde
       const context = await this.get_context_hyde(user_input);
@@ -3206,7 +3194,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
           content: user_input
         }
       ];
-      this.request_chatgpt_completion({messages: chatml, temperature: 0});
+      this.request_chatgpt_completion({messages: chatml, temperature: 0, privacyStr: '已经读取笔记内容'});
       return;
     }
     // completion without any specific context
@@ -3252,13 +3240,12 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
 
   // check if includes keywords referring to one's own notes
   contains_self_referential_keywords(user_input) {
-    const matches = user_input.match(this.plugin.self_ref_kw_regex);
-    if(matches) return true;
-    return false;
+    const matches = user_input.match(/基于\s*我的\s*笔记/);
+    return !!matches;
   }
 
   // render message
-  async render_message(message, from="assistant", append_last=false) {
+  async render_message(message, from="assistant", append_last=false, privacyStr='') {
     // if dotdotdot interval is set, then clear it
     if(this.dotdotdot_interval) {
       clearInterval(this.dotdotdot_interval);
@@ -3283,6 +3270,9 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
       }
       // set message text
       this.active_elm.innerHTML = '';
+      if(from === 'assistant' && privacyStr !== '') {
+        this.active_elm.innerHTML = `[${privacyStr}]`;
+      }
       await Obsidian.MarkdownRenderer.renderMarkdown(message, this.active_elm, '?no-dataview', new Obsidian.Component());
       // get links
       this.handle_links_in_message();
@@ -3306,7 +3296,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
       context_view.addEventListener("click", () => {
         // copy to clipboard
         navigator.clipboard.writeText("```smart-connections\n" + this_hyd + "\n```\n");
-        new Obsidian.Notice("[Smart Connections] Context code block copied to clipboard");
+        new Obsidian.Notice("[Smart Connections] 上下文代码块已经复制到剪贴板");
       });
     }
     if(this.chat.context) {
@@ -3322,7 +3312,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
       copy_prompt_button.addEventListener("click", () => {
         // copy to clipboard
         navigator.clipboard.writeText("```prompt-context\n" + this_context + "\n```\n");
-        new Obsidian.Notice("[Smart Connections] Context copied to clipboard");
+        new Obsidian.Notice("[Smart Connections] 上下文已复制到剪贴板");
       });
     }
     // render copy button
@@ -3407,11 +3397,13 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
       ...opts
     }
     // console.log(opts.messages);
+    let privacyStr = opts.privacyStr || '';
+    delete opts.privacyStr;
     if(opts.stream) {
       const full_str = await new Promise((resolve, reject) => {
         try {
           // console.log("stream", opts);
-          const url = `${this.settings.api_endpoint}/v1/chat/completions`;
+          const url = `${this.plugin.settings.api_endpoint}/v1/chat/completions`;
           this.active_stream = new ScStreamer(url, {
             headers: {
               "Content-Type": "application/json",
@@ -3423,13 +3415,24 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
           let txt = "";
           this.active_stream.addEventListener("message", (e) => {
             if (e.data != "[DONE]") {
-              const payload = JSON.parse(e.data);
-              const text = payload.choices[0].delta.content;
-              if (!text) {
-                return;
+              let resp = null;
+              try{
+                resp = JSON.parse(e.data);
+                const text = resp.choices[0].delta.content;
+                if(!text) return;
+                txt += text;
+                this.render_message(text, "assistant", true, privacyStr);
+              }catch(err){
+                // console.log(err);
+                if(e.data.indexOf('}{') > -1) e.data = e.data.replace(/}{/g, '},{');
+                resp = JSON.parse(`[${e.data}]`);
+                resp.forEach((r) => {
+                  const text = r.choices[0].delta.content;
+                  if(!text) return;
+                  txt += text;
+                  this.render_message(text, "assistant", true, privacyStr);
+                });
               }
-              txt += text;
-              this.render_message(text, "assistant", true);
             } else {
               this.end_stream();
               resolve(txt);
@@ -3442,21 +3445,21 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
           });
           this.active_stream.addEventListener("error", (e) => {
             console.error(e);
-            new Obsidian.Notice("Smart Connections Error Streaming Response. See console for details.");
-            this.render_message("*API Error. See console logs for details.*", "assistant");
+            new Obsidian.Notice("Smart Connections 进行流式连接的过程出现错误。请查看调试控制台。");
+            this.render_message("*API 请求错误. 请查看调试控制台.*", "assistant", false, privacyStr);
             this.end_stream();
             reject(e);
           });
           this.active_stream.stream();
         } catch (err) {
           console.error(err);
-          new Obsidian.Notice("Smart Connections Error Streaming Response. See console for details.");
+          new Obsidian.Notice("Smart Connections 进行流式连接的过程出现错误。请查看调试控制台。");
           this.end_stream();
           reject(err);
         }
       });
       // console.log(full_str);
-      await this.render_message(full_str, "assistant");
+      await this.render_message(full_str, "assistant", false, privacyStr);
       this.chat.new_message_in_thread({
         role: "assistant",
         content: full_str
@@ -3465,7 +3468,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
     }else{
       try{
         const response = await (0, Obsidian.requestUrl)({
-          url: `${this.settings.api_endpoint}/v1/chat/completions`,
+          url: `${this.plugin.settings.api_endpoint}/v1/chat/completions`,
           method: "POST",
           headers: {
             Authorization: `Bearer ${this.plugin.settings.api_key}`,
@@ -3478,7 +3481,7 @@ class SmartConnectionsChatView extends Obsidian.ItemView {
         // console.log(response);
         return JSON.parse(response.text).choices[0].message.content;
       }catch(err){
-        new Obsidian.Notice(`Smart Connections API Error :: ${err}`);
+        new Obsidian.Notice(`Smart Connections API 调用错误 :: ${err}`);
       }
     }
   }
@@ -3685,7 +3688,7 @@ class SmartConnectionsChatModel {
     // validate chat_id is set to valid filename characters (letters, numbers, underscores, dashes, em dash, and spaces)
     if (!this.chat_id.match(/^[a-zA-Z0-9_—\- ]+$/)) {
       console.log("Invalid chat_id: " + this.chat_id);
-      new Obsidian.Notice("[Smart Connections] Failed to save chat. Invalid chat_id: '" + this.chat_id + "'");
+      new Obsidian.Notice("[Smart Connections] 保存失败. 非法会话 id (chat_id): '" + this.chat_id + "'");
     }
     // filename is chat_id
     const chat_file = this.chat_id + ".json";
@@ -3839,7 +3842,7 @@ class SmartConnectionsChatModel {
         content: user_input
       }
     ];
-    chat_view.request_chatgpt_completion({messages: chatml, temperature: 0});
+    chat_view.request_chatgpt_completion({messages: chatml, temperature: 0, privacyStr: '已经读取笔记内容'});
   }
   // check if contains internal link
   contains_internal_link(user_input) {

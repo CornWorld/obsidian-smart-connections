@@ -1,10 +1,10 @@
 {
   "id": "smart-connections",
   "name": "Smart Connections",
-  "author": "Brian Petro",
-  "description": "Find links to similar notes using artificial intelligence from OpenAI.",
+  "author": "Brian Petro & CornWorld",
+  "description": "使用 OpenAI 的 AI 查找类似笔记的链接，让 AI 赋能 Obsidian。",
   "minAppVersion": "1.1.0",
-  "authorUrl": "https://wfhbrian.com",
+  "authorUrl": "https://corn.li",
   "isDesktopOnly": true,
-  "version": "1.6.37"
+  "version": "1.6.61"
 }

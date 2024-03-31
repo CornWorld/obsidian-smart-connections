@@ -1,14 +1,14 @@
 {
   "name": "obsidian-smart-connections",
-  "version": "1.6.37",
-  "description": "Link and chat with your notes using ChatGPT and embedding artificial intelligence from OpenAI.",
+  "version": "1.6.61",
+  "description": "使用 OpenAI ChatGPT 模型为 Obsidian 笔记提供智能连接。",
   "main": "main.js",
   "scripts": {
     "bundle": "node esbuild.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/brianpetro/obsidian-smart-connections.git"
+    "url": "git+https://github.com/CornWorld/obsidian-smart-connections.git"
   },
   "keywords": [
     "Obsidian",
@@ -22,12 +22,10 @@
   "author": "WFH Brian (Brian Petro)",
   "license": "SEE LICENSE IN LICENSE",
   "bugs": {
-    "url": "https://github.com/brianpetro/obsidian-smart-connections/issues"
+    "url": "https://github.com/CornWorld/obsidian-smart-connections/issues"
   },
-  "homepage": "https://github.com/brianpetro/obsidian-smart-connections",
+  "homepage": "https://github.com/CornWorld/obsidian-smart-connections",
   "devDependencies": {
     "esbuild": "^0.17.19"
-  },
-  "dependencies": {
   }
 }
