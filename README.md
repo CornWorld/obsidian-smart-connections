@@ -1,4 +1,7 @@
-# Smart Connections: AI-Powered Note Connections for Obsidian
+# Smart Connections 中文版: AI-Powered Note Connections for Obsidian 让 AI 赋能笔记
+
+> 本项目为 Smart Connections v1 中文版，以下为英文描述
+
 Ever felt overwhelmed by a growing collection of notes in Obsidian, wondering how to uncover hidden connections and insights? Discover Smart Connections, an AI-powered plugin that transforms your note-taking experience and helps you tap into the full potential of your ideas.
 
 Our goal is to democratize access to AI technology and empower individuals with innovative tools. By creating open-source AI solutions like Smart Connections, we're breaking down barriers and ensuring that Obsidian users of all backgrounds can benefit from AI-enhanced productivity and creativity. Imagine a world where the power of AI is harnessed to amplify the knowledge and insights hidden within your notes, making the entire Obsidian community more interconnected and insightful.
